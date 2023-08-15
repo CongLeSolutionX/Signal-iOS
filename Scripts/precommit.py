@@ -17,19 +17,15 @@ git_repo_path = os.path.abspath(
 def sort_forward_decl_statement_block(text, filepath, filename, file_extension):
     lines = text.split("\n")
     lines = [line.strip() for line in lines if line.strip()]
-    lines = list(set(lines))
-    lines.sort()
+    lines = sorted(set(lines))
     return "\n" + "\n".join(lines) + "\n"
 
 
 def find_matching_section(text, match_test):
     lines = text.split("\n")
-    first_matching_line_index = None
-    for index, line in enumerate(lines):
-        if match_test(line):
-            first_matching_line_index = index
-            break
-
+    first_matching_line_index = next(
+        (index for index, line in enumerate(lines) if match_test(line)), None
+    )
     if first_matching_line_index is None:
         return None
 
@@ -71,29 +67,30 @@ def sort_matching_blocks(
         section = find_matching_section(unprocessed, match_func)
         # print '\t', 'sort_matching_blocks', section
         if not section:
-            if processed:
-                processed = "\n".join(
+            processed = (
+                "\n".join(
                     (
                         processed,
                         unprocessed,
                     )
                 )
-            else:
-                processed = unprocessed
+                if processed
+                else unprocessed
+            )
             break
 
         text0, text1, text2 = section
 
-        if processed:
-            processed = "\n".join(
+        processed = (
+            "\n".join(
                 (
                     processed,
                     text0,
                 )
             )
-        else:
-            processed = text0
-
+            if processed
+            else text0
+        )
         # print 'before:'
         # temp_lines = text1.split('\n')
         # for index, line in enumerate(temp_lines):
@@ -283,9 +280,7 @@ def check_diff_for_keywords():
     keywords = objc_keywords + swift_keywords
 
     matching_expression = "|".join(keywords)
-    command_line = (
-        'git diff --staged | grep --color=always -C 3 -E "%s"' % matching_expression
-    )
+    command_line = f'git diff --staged | grep --color=always -C 3 -E "{matching_expression}"'
     try:
         output = subprocess.check_output(command_line, shell=True, text=True)
     except subprocess.CalledProcessError as e:

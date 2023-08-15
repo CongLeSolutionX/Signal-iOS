@@ -21,8 +21,7 @@ def fail(message):
 def execute_command(command):
     try:
         print(" ".join(command))
-        output = subprocess.check_output(command, text=True)
-        if output:
+        if output := subprocess.check_output(command, text=True):
             print(output)
     except subprocess.CalledProcessError as e:
         print(e.output)
@@ -67,11 +66,11 @@ def is_valid_version_4(value):
 
 def set_versions(plist_file_path, release_version, build_version_1, build_version_4):
     if not is_valid_version_3(release_version):
-        fail("Invalid release version: %s" % release_version)
+        fail(f"Invalid release version: {release_version}")
     if not is_valid_version_1(build_version_1):
-        fail("Invalid build version 1: %s" % build_version_1)
+        fail(f"Invalid build version 1: {build_version_1}")
     if not is_valid_version_4(build_version_4):
-        fail("Invalid build version 4: %s" % build_version_4)
+        fail(f"Invalid build version 4: {build_version_4}")
 
     with open(plist_file_path, "rt") as f:
         text = f.read()
@@ -138,7 +137,7 @@ class Version3:
         self.patch = patch
 
     def formatted(self):
-        return str(self.major) + "." + str(self.minor) + "." + str(self.patch)
+        return f"{str(self.major)}.{str(self.minor)}.{str(self.patch)}"
 
 
 # Represents a version string with 4 dotted values, e.g. 1.2.3.4.
@@ -173,14 +172,10 @@ def parse_version_4(text):
         fail("Could not parse .plist")
     if len(match.groups()) < 3 or len(match.groups()) > 4:
         fail("Could not parse .plist")
-    major = int(match.group(1))
-    minor = int(match.group(2))
-    patch = int(match.group(3))
-    if match.group(4) != None:
-        build = int(match.group(4))
-    else:
-        build = 0
-
+    major = int(match[1])
+    minor = int(match[2])
+    patch = int(match[3])
+    build = int(match[4]) if match[4] != None else 0
     version = Version4(major, minor, patch, build)
     # Verify that roundtripping yields the same value (or a version3 equivalent)
     if version.formatted() != text and version.asVersion3().formatted() != text:
@@ -247,12 +242,12 @@ def get_versions(plist_file_path):
     if not build_version_1_match:
         fail("Could not parse .plist")
 
-    release_version_str = release_version_match.group(1)
+    release_version_str = release_version_match[1]
     print("CFBundleShortVersionString:", release_version_str)
     release_version = parse_version_4(release_version_str).asVersion3()
     print("old_release_version:", release_version.formatted())
 
-    build_version_1_str = build_version_1_match.group(1)
+    build_version_1_str = build_version_1_match[1]
     print("CFBundleVersion:", build_version_1_str)
     build_version_1 = parse_version_1(build_version_1_str)
     print("old_build_version_1:", build_version_1.formatted())
@@ -283,39 +278,37 @@ def get_tag_variant(args):
     elif current_flag in ["production"]:
         feature_flag_tag = ""
     else:
-        print("Unrecognized feature flag: " + current_flag)
+        print(f"Unrecognized feature flag: {current_flag}")
         feature_flag_tag = None
 
-    if is_nightly or feature_flag_tag == None:
+    if (
+        is_nightly
+        or feature_flag_tag is None
+        or argument_tag == feature_flag_tag
+    ):
         # Just trust the tag variant specified via argument if:
         # - It's a nightly build. Those are automated and we shouldn't bug a script with interactive input requests
         # - We don't recognize the build variant.
         return argument_tag
-    elif argument_tag == feature_flag_tag:
-        return argument_tag
-    else:
         # A mismatch! Let's check with the user to see if they really wanted
         # a tag variant that matched the current feature flag.
-        argument_tag_string = argument_tag if len(argument_tag) > 0 else "production"
-        feature_flag_tag_string = (
-            feature_flag_tag if len(feature_flag_tag) > 0 else "production"
-        )
+    argument_tag_string = argument_tag if argument_tag != "" else "production"
+    feature_flag_tag_string = (
+        feature_flag_tag if len(feature_flag_tag) > 0 else "production"
+    )
 
-        print(
-            "Feature flag mismatch! Arguments specify a "
-            + argument_tag_string
-            + " tag but the current feature flag indicates a "
-            + feature_flag_tag_string
-            + " tag may be more appropriate."
-        )
-        prefer_feature_flag = input(
-            "Proceed with a " + feature_flag_tag_string + " instead? (Y/n) "
-        )
+    print(
+        f"Feature flag mismatch! Arguments specify a {argument_tag_string} tag but the current feature flag indicates a {feature_flag_tag_string} tag may be more appropriate."
+    )
+    prefer_feature_flag = input(
+        f"Proceed with a {feature_flag_tag_string} instead? (Y/n) "
+    )
 
-        if len(prefer_feature_flag) == 0 or prefer_feature_flag[0] in "Yy":
-            return feature_flag_tag
-        else:
-            return argument_tag
+    return (
+        feature_flag_tag
+        if len(prefer_feature_flag) == 0 or prefer_feature_flag[0] in "Yy"
+        else argument_tag
+    )
 
 
 if __name__ == "__main__":
@@ -429,22 +422,19 @@ if __name__ == "__main__":
     execute_command(command)
 
     if tag_variant == "internal":
-        commit_message = '"Bump build to %s." (Internal)' % new_build_version_4
+        commit_message = f'"Bump build to {new_build_version_4}." (Internal)'
     elif tag_variant == "beta":
-        commit_message = '"Bump build to %s." (Beta)' % new_build_version_4
+        commit_message = f'"Bump build to {new_build_version_4}." (Beta)'
     elif tag_variant == "nightly":
-        commit_message = '"Bump build to %s." (nightly-%s)' % (
-            new_build_version_4,
-            date.today().strftime("%m-%d-%Y"),
-        )
+        commit_message = f'"Bump build to {new_build_version_4}." (nightly-{date.today().strftime("%m-%d-%Y")})'
     else:
-        commit_message = '"Bump build to %s."' % new_build_version_4
+        commit_message = f'"Bump build to {new_build_version_4}."'
     command = ["git", "commit", "-m", commit_message]
     execute_command(command)
 
     tag_name = new_build_version_4
     if len(tag_variant) > 0:
-        tag_name += "-" + tag_variant
+        tag_name += f"-{tag_variant}"
 
     command = ["git", "tag", tag_name]
     execute_command(command)

@@ -41,13 +41,13 @@ def process_file(file_path):
         if match is None:
             break
 
-        import_name = match.group(2)
+        import_name = match[2]
         if import_name == 'Compression':
             # Ignore this framework.
             continue
 
         print('\t', 'Fixing:', import_name)
-        new_import = '#import <%s/%s.h>' % ( import_name, import_name, )
+        new_import = f'#import <{import_name}/{import_name}.h>'
         text = text[:match.start(1)] + new_import + text[match.end(1):]
 
     if text == src_text:

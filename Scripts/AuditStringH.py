@@ -64,7 +64,7 @@ def process_if_appropriate(file_path):
     if file_ext.lower() not in ('.c', '.cpp', '.m', '.mm', '.h', '.swift'):
         return
     # print 'file_path', file_path, 'file_ext', file_ext
-    
+
     with open(file_path, 'rt') as f:
         text = f.read()
 
@@ -72,9 +72,7 @@ def process_if_appropriate(file_path):
     for string_h_function in string_h_functions:
         regex = re.compile(string_h_function + r'\s*\(')
         assert(regex)
-        matches = []
-        for match in regex.finditer(text):
-            matches.append(match)
+        matches = list(regex.finditer(text))
         # matches = regex.findall(text)
         if not matches:
             continue
@@ -93,13 +91,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Precommit script.')
     parser.add_argument('--path', help='used to specify a path to process.')
     args = parser.parse_args()
-    
-    
-    if args.path:
-        dir_path = args.path
-    else:
-        dir_path = git_repo_path
 
+
+    dir_path = args.path if args.path else git_repo_path
     for rootdir, dirnames, filenames in os.walk(dir_path):
         for filename in filenames:
             file_path = os.path.abspath(os.path.join(rootdir, filename))

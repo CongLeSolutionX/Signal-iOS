@@ -146,7 +146,7 @@ def main():
     for path in ns.path:
         version = get_version(path)
         base, ext = os.path.splitext(path)
-        output_path = base + ".symbolicated" + ext
+        output_path = f"{base}.symbolicated{ext}"
         if version == 2:
             symbolicate_v2(xcode_path, path, output_path)
             ensure_symbolication_happened_v2(path, output_path)

@@ -68,10 +68,7 @@ class ParsedClass:
         self.property_map[property.name] = property
 
     def properties(self):
-        result = []
-        for name in sorted(self.property_map.keys()):
-            result.append(self.property_map[name])
-        return result
+        return [self.property_map[name] for name in sorted(self.property_map.keys())]
 
     def property_names(self):
         return sorted(self.property_map.keys())
@@ -138,8 +135,7 @@ class Namespace:
         return clazz
 
     def find_class(self, class_name):
-        clazz = self.class_map.get(class_name)
-        return clazz
+        return self.class_map.get(class_name)
 
     def class_names(self):
         return sorted(self.class_map.keys())
@@ -163,7 +159,7 @@ def process_objc_ast(namespace: Namespace, file_path: str, raw_ast: str) -> None
     file_base, file_extension = os.path.splitext(m_filename)
     if file_extension != '.m':
         fail('Bad file extension:', file_extension)
-    h_filename = file_base + '.h'
+    h_filename = f'{file_base}.h'
 
     # TODO: Remove
     lines = raw_ast.split('\n')
@@ -238,7 +234,7 @@ def process_objc_type_declaration(namespace, file_path, lines, prefix, remainder
 
     if type1 is None or type3 is None:
         return
-    is_enum = (type1 == 'enum ' + type3)
+    is_enum = type1 == f'enum {type3}'
     if not is_enum:
         return
 
@@ -431,9 +427,7 @@ process_objc_property_regex = re.compile(r"^.+<.+> col:\d+(.+?)'(.+?)'(:'(.+)')?
 # This convenience function handles None results and strips.
 def get_match_group(match, index):
     group = match.group(index)
-    if group is None:
-        return ""
-    return group.strip()
+    return "" if group is None else group.strip()
 
 
 def process_objc_property(clazz, prefix, file_path, line, remainder):
@@ -448,11 +442,11 @@ def process_objc_property(clazz, prefix, file_path, line, remainder):
     property_type_2 = get_match_group(match, 4)
     property_keywords = match.group(5).strip().split(' ')
 
-    is_optional = (property_type_2 + ' _Nullable') == property_type_1
+    is_optional = f'{property_type_2} _Nullable' == property_type_1
     is_readonly = 'readonly' in property_keywords
 
     property_type = property_type_2
-    if len(property_type_2) < 1:
+    if len(property_type) < 1:
         property_type = property_type_1
 
     primitive_types = (
@@ -555,7 +549,7 @@ def find_header_include_paths(include_path):
         # Only include subdirectories with header files.
         for filename in os.listdir(dir_path):
             if filename.endswith('.h'):
-                result.append('-I' + dir_path)
+                result.append(f'-I{dir_path}')
                 break
 
     # Add root if necessary.
@@ -661,23 +655,29 @@ def process_objc(
 
     # TODO: We'll never repro the correct search paths, so clang will always emit errors.
     #       We'll want to ignore these errors without silently failing.
-    command = [
-        'clang',
-        '-x',
-        'objective-c',
-        '-Xclang',
-        '-ast-dump',
-        '-fobjc-arc',
-        ] + clang_args + [
-        '-isysroot',
-        iphoneos_sdk_path,
-        ] + header_include_paths + [
-        ('-I' + module_header_dir_path),
-        ('-I' + swift_bridging_path),
-        '-include',
-        pch_include,
-        file_path,
-    ]
+    command = (
+        [
+            'clang',
+            '-x',
+            'objective-c',
+            '-Xclang',
+            '-ast-dump',
+            '-fobjc-arc',
+        ]
+        + clang_args
+        + [
+            '-isysroot',
+            iphoneos_sdk_path,
+        ]
+        + header_include_paths
+        + [
+            f'-I{module_header_dir_path}',
+            f'-I{swift_bridging_path}',
+            '-include',
+            pch_include,
+            file_path,
+        ]
+    )
 
     exit_code, output, error_output = ows_getoutput(command)
 
