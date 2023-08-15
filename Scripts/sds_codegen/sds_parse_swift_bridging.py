@@ -114,22 +114,24 @@ def process_file(file_path, namespace):
 
 def generate_swift_bridging_header(namespace, swift_bridging_path):
 
-    output = []
-
-    for name in namespace.swift_protocol_names:
-        output.append('''
+    output = [
+        '''
 @protocol %s
 @end
-''' % ( name, ) )
-
-    for name in namespace.swift_class_names:
-        output.append('''
+'''
+        % (name,)
+        for name in namespace.swift_protocol_names
+    ]
+    output.extend(
+        '''
 @interface %s : NSObject
 @end
-''' % ( name, ) )
-
+'''
+        % (name,)
+        for name in namespace.swift_class_names
+    )
     output = '\n'.join(output).strip()
-    if len(output) < 1:
+    if not output:
         return
 
     header = '''//
@@ -182,7 +184,9 @@ def process_dir(src_dir_path, dir_name, dst_dir_path):
         if idx % 100 == 99:
             print(f"... {idx+1} / {len(file_paths)}")
 
-    bridging_header_path = os.path.abspath(os.path.join(dst_dir_path, dir_name, dir_name + '-Swift.h'))
+    bridging_header_path = os.path.abspath(
+        os.path.join(dst_dir_path, dir_name, f'{dir_name}-Swift.h')
+    )
     generate_swift_bridging_header(namespace, bridging_header_path)
 
 

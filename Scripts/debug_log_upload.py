@@ -21,8 +21,7 @@ def fail(message):
 def execute_command(command):
     try:
         print(" ".join(command))
-        output = subprocess.check_output(command, text=True)
-        if output:
+        if output := subprocess.check_output(command, text=True):
             print(output)
     except subprocess.CalledProcessError as e:
         print(e.output)
@@ -31,7 +30,7 @@ def execute_command(command):
 
 def add_field(curl_command, form_key, form_value):
     curl_command.append("-F")
-    curl_command.append("%s=%s" % (form_key, form_value))
+    curl_command.append(f"{form_key}={form_value}")
 
 
 if __name__ == "__main__":
@@ -52,7 +51,7 @@ if __name__ == "__main__":
     upload_key = upload_fields.pop("key")
     upload_key = upload_key + os.path.splitext(args.file)[1]
 
-    download_url = "https://debuglogs.org/" + upload_key
+    download_url = f"https://debuglogs.org/{upload_key}"
     print("download_url:", download_url)
 
     curl_command = ["curl", "-v", "-i", "-X", "POST"]
@@ -64,10 +63,7 @@ if __name__ == "__main__":
 
     add_field(curl_command, "content-type", "application/octet-stream")
 
-    curl_command.append("-F")
-    curl_command.append("file=@%s" % (args.file,))
-    curl_command.append(upload_url)
-
+    curl_command.extend(("-F", f"file=@{args.file}", upload_url))
     print(" ".join(curl_command))
 
     print("Running...")

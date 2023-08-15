@@ -50,8 +50,7 @@ def parse_args():
 def get_all_keys(strings_file: pathlib.Path) -> Iterable[str]:
     with open(strings_file, "r") as file:
         for line in file:
-            match = key_re.match(line)
-            if match:
+            if match := key_re.match(line):
                 yield match.group(1)
 
 

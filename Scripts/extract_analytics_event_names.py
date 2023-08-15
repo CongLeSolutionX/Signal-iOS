@@ -51,29 +51,25 @@ def process(filepath, c_macros, swift_macros):
     short_filepath = filepath[len(git_repo_path):]
     if short_filepath.startswith(os.sep):
        short_filepath = short_filepath[len(os.sep):] 
-    
+
     filename = os.path.basename(filepath)
     if filename.startswith('.'):
         return
     if filename == 'OWSAnalytics.h':
         return
     file_ext = os.path.splitext(filename)[1]
-    
+
     is_swift = file_ext in ('.swift')
-    
-    
-    if is_swift:
-        macros = swift_macros
-    else:
-        macros = c_macros
-    
+
+
+    macros = swift_macros if is_swift else c_macros
     # print short_filepath, is_swift
-    
+
     with open(filepath, 'rt') as f:
         text = f.read()
-    
+
     replacement_map = {}
-    
+
     position = 0
     has_printed_filename = False
     while True:
@@ -83,22 +79,18 @@ def process(filepath, c_macros, swift_macros):
             pattern = r'''%s\(([^,\)]+)[,\)]''' % macro
             # print '\t pattern', pattern
             matcher = re.compile(pattern)
-            # matcher = re.compile(r'#define (OWSProd)')
-            match = matcher.search(text, pos=position)
-            if match:
-                event_name = match.group(1).strip()
-                
+            if match := matcher.search(text, pos=position):
+                event_name = match[1].strip()
+
                 # Ignore swift func definitions
                 if is_swift and ':' in event_name:
                     continue
-                    
+
                 # print '\t', 'event_name', event_name
-                
+
                 if not best_match:
                     pass
-                elif best_match.start(1) > match.start(1):
-                    pass
-                else:
+                elif best_match.start(1) <= match.start(1):
                     continue
 
                 best_match = match
@@ -106,52 +98,47 @@ def process(filepath, c_macros, swift_macros):
         # TODO:
         if not best_match:
             break
-            
+
         position = best_match.end(1)
         if not has_printed_filename:
             has_printed_filename = True
             print(short_filepath)
-        
+
         raw_event_name = best_match.group(1).strip()
-        if is_swift:
-            pattern = r'^"(.+)"$'
-        else:
-            pattern = r'^@"(.+)"$'
+        pattern = r'^"(.+)"$' if is_swift else r'^@"(.+)"$'
         # print 'pattern:', pattern
         matcher = re.compile(pattern)
-        # matcher = re.compile(r'#define (OWSProd)')
-        match = matcher.search(raw_event_name)
-        if match:
-            event_name = match.group(1).strip()
+        if match := matcher.search(raw_event_name):
+            event_name = match[1].strip()
         else:
-            print('\t', 'Ignoring event: _%s_' % raw_event_name)
+            print('\t', f'Ignoring event: _{raw_event_name}_')
             continue
         event_names.append(event_name)
         print('\t', 'event_name', event_name)
-        
+
         if is_swift:
-            before = '"%s"' % event_name
-            after = 'OWSAnalyticsEvents.%s()' % objc_name_for_event_name(event_name)
+            before = f'"{event_name}"'
+            after = f'OWSAnalyticsEvents.{objc_name_for_event_name(event_name)}()'
         else:
-            before = '@"%s"' % event_name
-            after = '[OWSAnalyticsEvents %s]' % objc_name_for_event_name(event_name)
+            before = f'@"{event_name}"'
+            after = f'[OWSAnalyticsEvents {objc_name_for_event_name(event_name)}]'
         replacement_map[before] = after
-                
-        # macros.append(macro)
-        
-        # break
-    
+                    
+            # macros.append(macro)
+            
+            # break
+
     # print 'replacement_map', replacement_map
-    
+
     for before in replacement_map:
         after = replacement_map[before]
         text = text.replace(before, after)
 
     # if original_text == text:
     #     return
-    
+
     print('Updating:', short_filepath)
-    
+
     with open(filepath, 'wt') as f:
         f.write(text)
 
@@ -193,26 +180,24 @@ def extract_macros(filepath):
     is_swift = file_ext in ('.swift')
 
     macros = []
-    
+
     with open(filepath, 'rt') as f:
         text = f.read()
-    
+
     lines = text.split('\n')
     for line in lines:
         # Match lines of this form: 
         # #define OWSProdCritical(__eventName) ...
-    
+
         if is_swift:
             matcher = re.compile(r'func (OWSProd[^\(]+)\(.+[,\)]')
         else:
             matcher = re.compile(r'#define (OWSProd[^\(]+)\(.+[,\)]')
-        # matcher = re.compile(r'#define (OWSProd)')
-        match = matcher.search(line)
-        if match:
-            macro = match.group(1).strip()
+        if match := matcher.search(line):
+            macro = match[1].strip()
             # print 'macro', macro
             macros.append(macro)
-    
+
     return macros
     
     
@@ -220,12 +205,12 @@ def update_event_names(header_file_path, source_file_path):
     # global event_names
     # event_names = sorted(set(event_names))
     code_generation_marker = '#pragma mark - Code Generation Marker'
-    
+
     # Source
     filepath = source_file_path
     with open(filepath, 'rt') as f:
         text = f.read()
-    
+
     code_generation_start = text.find(code_generation_marker)
     code_generation_end = text.rfind(code_generation_marker)
     if code_generation_start < 0:
@@ -248,13 +233,13 @@ def update_event_names(header_file_path, source_file_path):
         # print 'split:', split
         if not split:
             continue
-        
+
         # Example:
         #(NSString *)call_service_call_already_set
         #{
         #    return @"call_service_call_already_set";
         #}        
-        
+
         pattern = r'\(NSString \*\)([^\s\r\n\t]+)[\s\r\n\t]'
         matcher = re.compile(pattern)
         match = matcher.search(split)
@@ -263,9 +248,9 @@ def update_event_names(header_file_path, source_file_path):
             print('In file:', filepath)
             sys.exit(1)
 
-        method_name = match.group(1).strip()
+        method_name = match[1].strip()
         print('method_name:', method_name)
-        
+
         pattern = r'return @"(.+)";'
         matcher = re.compile(pattern)
         match = matcher.search(split)
@@ -274,17 +259,17 @@ def update_event_names(header_file_path, source_file_path):
             print('In file:', filepath)
             sys.exit(1)
 
-        event_name = match.group(1).strip()
+        event_name = match[1].strip()
         print('event_name:', event_name)
-        
+
         event_name_map[event_name] = method_name
-    
+
     print()
-    
-    
+
+
     all_event_names = sorted(set(list(event_name_map.keys()) + event_names))
     print('all_event_names', all_event_names)
-        
+
     generated = code_generation_marker
     for event_name in all_event_names:
         # Example:
@@ -305,12 +290,12 @@ def update_event_names(header_file_path, source_file_path):
     with open(filepath, 'wt') as f:
         f.write(new_text)
 
-    
+
     # Header
     filepath = header_file_path
     with open(filepath, 'rt') as f:
         text = f.read()
-    
+
     code_generation_start = text.find(code_generation_marker)
     code_generation_end = text.rfind(code_generation_marker)
     if code_generation_start < 0:
@@ -319,13 +304,13 @@ def update_event_names(header_file_path, source_file_path):
     if code_generation_end < 0 or code_generation_end == code_generation_start:
         print('Could not find marker in file:', file)
         sys.exit(1)
-    
+
     generated = code_generation_marker
     for event_name in all_event_names:
         # Example:
         # + (NSString *)call_service_call_already_set;
         objc_name = objc_name_for_event_name(event_name)
-        text_for_event = '+ (NSString *)%s;' % (objc_name,)
+        text_for_event = f'+ (NSString *){objc_name};'
         generated = generated + '\n\n' + text_for_event
     generated = generated + '\n\n' + code_generation_marker
     print('generated', generated)

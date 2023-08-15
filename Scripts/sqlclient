@@ -19,7 +19,7 @@ DB_BROWSER_FOR_SQLITE_BUNDLEID = "net.sourceforge.sqlitebrowser"
 
 quietMode=False
 def failWithError(string):
-    print("Error: " + string, file=sys.stderr)
+    print(f"Error: {string}", file=sys.stderr)
     exit(1)
 
 def printInfo(string = ""):
@@ -37,7 +37,7 @@ class Simulator:
     def __init__(self, searchString, useStaging):
 
         # Get JSON list of simulators matching searchString
-        cmd = "xcrun simctl list -j devices " + searchString
+        cmd = f"xcrun simctl list -j devices {searchString}"
         resultString = runCommand(cmd.split())
         simDict = json.loads(resultString)
         devicesByRuntime = simDict["devices"]
@@ -57,7 +57,7 @@ class Simulator:
         # Select a candidate
         selectedCandidate = None
 
-        if len(candidates) == 0:
+        if not candidates:
             failWithError("Could not find a \"" + searchString + "\" simulator")
         elif len(candidates) == 1:
             selectedCandidate = candidates[0]
@@ -67,7 +67,7 @@ class Simulator:
             for idx, candidate in enumerate(candidates):
                 printInfo("{}:\t{:40}\t{} {} ({})".format(idx, candidate["name"], candidate["type"], candidate["os"], candidate["udid"]))
 
-            while selectedCandidate == None:
+            while selectedCandidate is None:
                 try:
                     idx = int(input("Select a simulator: "))
                     selectedCandidate = candidates[idx]
@@ -78,21 +78,20 @@ class Simulator:
         self.groupID = SIGNAL_APPGROUP_STAGING if useStaging else SIGNAL_APPGROUP
         self.groupContainer = self.fetchGroupContainer(self.udid, self.groupID)
         printInfo("Selected simulator: " + selectedCandidate["name"] + " (" + selectedCandidate["udid"] + ")")
-        printInfo("Using groupID: " + self.groupID)
+        printInfo(f"Using groupID: {self.groupID}")
         printInfo()
 
     def parseDebugPayload(self):
-        path = self.groupContainer + "/" + SIGNAL_DEBUG_PAYLOAD_NAME
+        path = f"{self.groupContainer}/{SIGNAL_DEBUG_PAYLOAD_NAME}"
         try:
             fd = open(path, 'r')
             data = fd.read()
-            payload = json.loads(data)
-            return payload
+            return json.loads(data)
         except IOError:
             return None
 
     def databasePath(self):
-        return (self.groupContainer + "/" + SIGNAL_FALLBACK_DATABASE_PATH)
+        return f"{self.groupContainer}/{SIGNAL_FALLBACK_DATABASE_PATH}"
 
     def passphraseIfAvailable(self):
         debugPayload = self.parseDebugPayload()
@@ -115,7 +114,7 @@ class Simulator:
 
     @staticmethod
     def fetchGroupContainer(udid, groupID):
-        cmd = "xcrun simctl get_app_container {} {} {}".format(udid, SIGNAL_BUNDLEID, groupID)
+        cmd = f"xcrun simctl get_app_container {udid} {SIGNAL_BUNDLEID} {groupID}"
         result = runCommand(cmd.split())
         return result.rstrip()
 
@@ -123,14 +122,14 @@ def preparePassphrase(passphrase):
     if len(passphrase) > 0 and passphrase[0] == 'x':
         return passphrase
     else:
-        return "x'" + passphrase + "'"
+        return f"x'{passphrase}'"
 
 def writeGuiEnvFile(passphrase, dbPath):
     dbName = os.path.basename(dbPath)
     envFilePath = os.path.join(os.path.dirname(dbPath), ".env")
 
     with open(envFilePath, "w", encoding="utf-8") as envFile:
-        envFile.write(dbName + " = " + passphrase + "\n")
+        envFile.write(f"{dbName} = {passphrase}" + "\n")
         envFile.write(dbName + "_plaintextHeaderSize = 32\n")
 
     return envFilePath
@@ -192,25 +191,25 @@ elif args.simulator:
     dbPath = target.databasePath()
     passphrase = target.passphraseIfAvailable()
 
-if dbPath == None:
+if dbPath is None:
     failWithError("No valid database path")
 elif os.path.isfile(dbPath) == False:
-    failWithError("Not valid path " + dbPath)
+    failWithError(f"Not valid path {dbPath}")
 
 if args.passphrase:
     passphrase = args.passphrase
-if passphrase == None:
+if passphrase is None:
     passphrase = getpass.getpass("Please enter the passphrase. Alternatively, set up a plaintext database key in Debug UI > Misc > Save plaintext database key. Then, rerun the command. ")
 
 if args.use_gui:
     if args.gui_auto_decrypt_with_plaintext_key:
-        if passphrase == None or len(passphrase) == 0:
+        if passphrase is None or len(passphrase) == 0:
             failWithError("Missing sqlcipher passphrase for auto-decryption")
 
         passphrase = preparePassphrase(passphrase)
         envFilePath = writeGuiEnvFile(passphrase, dbPath)
 
-        printInfo("Warning: saved passphrase to " + envFilePath + " for auto-decryption.")
+        printInfo(f"Warning: saved passphrase to {envFilePath} for auto-decryption.")
     else:
         printInfo(textwrap.dedent('''\
             When prompted for the passphrase, select the SQLCipher 4 default settings.
@@ -220,7 +219,7 @@ if args.use_gui:
 
     runCommand(["open", "-b", DB_BROWSER_FOR_SQLITE_BUNDLEID, dbPath])
 else:
-    if passphrase == None or len(passphrase) == 0:
+    if passphrase is None or len(passphrase) == 0:
         failWithError("No valid sqlcipher passphrase")
 
     passphrase = preparePassphrase(passphrase)
@@ -236,7 +235,7 @@ else:
         "-cmd", "PRAGMA cipher_plaintext_header_size = 32;",
         dbPath
     ]
-    if len(sqlArgString) > 0:
+    if sqlArgString != "":
         allArgs.append(sqlArgString)
 
     os.execvp("sqlcipher", allArgs)

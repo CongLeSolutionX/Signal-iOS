@@ -18,8 +18,7 @@ def fail(message):
 def execute_command(command):
     try:
         print(" ".join(command))
-        output = subprocess.check_output(command, text=True)
-        if output:
+        if output := subprocess.check_output(command, text=True):
             print(output)
     except subprocess.CalledProcessError as e:
         print(e.output)
@@ -34,8 +33,8 @@ def get_feature_flag():
     for line in fd:
         if line.strip().startswith("private let build: FeatureBuild"):
             match = regex.search(line)
-            if match and match.group(1):
-                return match.group(1)
+            if match and match[1]:
+                return match[1]
 
 
 def set_feature_flags(new_flags_level):
@@ -56,13 +55,8 @@ def set_feature_flags(new_flags_level):
     new_lines = []
     for line in lines:
         if line.strip().startswith("private let build: FeatureBuild"):
-            line = (
-                "private let build: FeatureBuild = OWSIsDebugBuild() ? .dev : .%s"
-                % (new_flags_level,)
-            )
-            new_lines.append(line)
-        else:
-            new_lines.append(line)
+            line = f"private let build: FeatureBuild = OWSIsDebugBuild() ? .dev : .{new_flags_level}"
+        new_lines.append(line)
     text = "\n".join(new_lines)
     with open(flags_path, "wt") as f:
         f.write(text)
@@ -74,7 +68,7 @@ def set_feature_flags(new_flags_level):
         execute_command(cmds)
 
         # git commit -m "Feature flags for .beta."
-        cmds = ["git", "commit", "-m", '"Feature flags for .%s."' % (new_flags_level,)]
+        cmds = ["git", "commit", "-m", f'"Feature flags for .{new_flags_level}."']
         execute_command(cmds)
     else:
-        print("Feature flags already set to %s, nothing to do" % new_flags_level)
+        print(f"Feature flags already set to {new_flags_level}, nothing to do")
