@@ -17,7 +17,7 @@
 	<array/>
 	<key>com.apple.developer.in-app-payments</key>
 	<array>
-		<string>merchant.$(SIGNAL_MERCHANTID)</string>
+		<string>merchant.tech.CongLeSolutionX.signal</string>
 	</array>
 	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
 	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
@@ -25,8 +25,9 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.$(SIGNAL_BUNDLEID_PREFIX).signal.group</string>
-		<string>group.$(SIGNAL_BUNDLEID_PREFIX).signal.group.staging</string>
+		<string>group.tech.CongLeSolutionX.signal.group</string>
+		<string>group.tech.CongLeSolutionX.signal.group.st</string>
+		<string>group.tech.CongLeSolutionX.signal.group.staging</string>
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
